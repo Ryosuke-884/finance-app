@@ -50,7 +50,7 @@ company_df = get_company_list(ID_TOKEN)
 GPT_TOKEN = os.getenv("GPT_TOKEN")
 client = openai.OpenAI(api_key=GPT_TOKEN)
 
-st.title("J-Quants 財務・株価グラフ可視化アプリ")
+st.title("J-Quantsを利用した上場企業の財務・株価グラフ可視化サイト")
 
 # ページ全体の横幅をさらに広げるカスタムCSS
 st.markdown(
