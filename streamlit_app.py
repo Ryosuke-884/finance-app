@@ -10,7 +10,25 @@ import openai
 # .envから環境変数を読み込む
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path)
-ID_TOKEN = os.getenv("JQUANTS_ID_TOKEN")
+
+# REFRESH_TOKENからIDトークンを自動取得
+REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
+def get_id_token(refresh_token):
+    url = "https://api.jquants.com/v1/token/auth_refresh"
+    headers = {"Content-Type": "application/json"}
+    data = {"refreshToken": refresh_token}
+    res = requests.post(url, json=data, headers=headers)
+    if res.status_code == 200:
+        return res.json().get("idToken")
+    else:
+        st.error(f"IDトークン取得失敗: {res.status_code} {res.text}")
+        return None
+
+if REFRESH_TOKEN:
+    ID_TOKEN = get_id_token(REFRESH_TOKEN)
+else:
+    ID_TOKEN = os.getenv("JQUANTS_ID_TOKEN")
+
 GPT_TOKEN = os.getenv("GPT_TOKEN")
 client = openai.OpenAI(api_key=GPT_TOKEN)
 
