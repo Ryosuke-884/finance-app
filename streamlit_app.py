@@ -189,18 +189,6 @@ if res_st.status_code == 200:
             min_period = valid_periods[0]
             max_period = valid_periods[-1]
             st.info(f"グラフが表示できる期間: {min_period} ～ {max_period}")
-        # 四半期表示期間スライサー（データが存在する範囲のみ選択肢にする）
-        period_labels = [p for p in df_q["PeriodLabel"].dropna().unique().tolist() if (min_period <= p <= max_period)]
-        if len(period_labels) >= 2:
-            start_idx, end_idx = st.select_slider(
-                "表示する四半期期間を選択",
-                options=period_labels,
-                value=(period_labels[0], period_labels[-1])
-            )
-            start_pos = period_labels.index(start_idx)
-            end_pos = period_labels.index(end_idx)
-            selected_labels = period_labels[start_pos:end_pos+1]
-            df_q = df_q[df_q["PeriodLabel"].isin(selected_labels)]
         # 株価も同じ期間で自動的にフィルタ
         if 'df_price' in locals() and len(df_q) > 0:
             min_period = df_q["DisclosedDate"].min()
@@ -311,29 +299,98 @@ else:
 # --- 株価グラフ（最初に表示） ---
 if 'df_price' in locals() and not df_price.empty:
     st.markdown("## 株価グラフ")
-    # 横軸を日本語表記（年月日）
     df_price_disp = df_price.copy()
     df_price_disp["日付"] = df_price_disp["Date"].dt.strftime("%Y年%m月%d日")
     st.line_chart(df_price_disp.set_index("日付")["Close"])
+
 # --- 四半期グラフ・通期グラフ・インサイトを横並びで ---
 if 'fig1' in locals() and 'fig2' in locals():
     col1, col2 = st.columns([2, 1])
     with col1:
         st.markdown("## 四半期グラフ")
+        # 四半期表示期間スライサー（データが存在する範囲のみ選択肢にする）
+        valid_periods = df_q.dropna(subset=["NetSales_single"])["PeriodLabel"].tolist()
+        if valid_periods:
+            min_period = valid_periods[0]
+            max_period = valid_periods[-1]
+            period_labels = [p for p in df_q["PeriodLabel"].dropna().unique().tolist() if (min_period <= p <= max_period)]
+            if len(period_labels) >= 2:
+                start_idx, end_idx = st.select_slider(
+                    "表示する四半期期間を選択",
+                    options=period_labels,
+                    value=(period_labels[0], period_labels[-1])
+                )
+                start_pos = period_labels.index(start_idx)
+                end_pos = period_labels.index(end_idx)
+                selected_labels = period_labels[start_pos:end_pos+1]
+                df_q_filtered = df_q[df_q["PeriodLabel"].isin(selected_labels)].copy()
+            else:
+                df_q_filtered = df_q.copy()
+        else:
+            df_q_filtered = df_q.copy()
+        # スライダーでフィルタしたdf_q_filteredのみを以降で使用
+        # 四半期グラフ
+        fig1 = go.Figure()
+        fig1.add_trace(go.Bar(x=df_q_filtered["PeriodLabel"], y=df_q_filtered["NetSales_single"], name="売上高（100万円,単体）", marker_color="royalblue"))
+        fig1.add_trace(go.Bar(x=df_q_filtered["PeriodLabel"], y=df_q_filtered["OperatingProfit_single"], name="営業利益（100万円,単体）", marker_color="orange"))
+        fig1.add_trace(go.Scatter(x=df_q_filtered["PeriodLabel"], y=df_q_filtered["営業利益率"], name="営業利益率(%)", yaxis="y2", mode="lines+markers", marker_color="green"))
+        fig1.update_layout(
+            title="売上高（単体）・営業利益（単体）・営業利益率の推移（四半期）",
+            xaxis_title="四半期",
+            yaxis=dict(title="金額（100万円）", zeroline=True, range=[0, max(df_q_filtered["NetSales_single"].max(), df_q_filtered["OperatingProfit_single"].max(), 1) * 1.1]),
+            yaxis2=dict(title="営業利益率(%)", overlaying="y", side="right", range=[0, 100], zeroline=True),
+            barmode="group"
+        )
+        fig2 = go.Figure()
+        fig2.add_trace(go.Bar(x=df_q_filtered["PeriodLabel"], y=df_q_filtered["TotalAssets"], name="総資産（100万円,累積）", marker_color="royalblue"))
+        fig2.add_trace(go.Bar(x=df_q_filtered["PeriodLabel"], y=df_q_filtered["Equity"], name="純資産（100万円,累積）", marker_color="orange"))
+        fig2.add_trace(go.Scatter(x=df_q_filtered["PeriodLabel"], y=df_q_filtered["自己資本比率"], name="自己資本比率(%)", yaxis="y2", mode="lines+markers", marker_color="green"))
+        fig2.update_layout(
+            title="総資産（累積）・純資産（累積）・自己資本比率の推移（四半期）",
+            xaxis_title="四半期",
+            yaxis=dict(title="金額（100万円）"),
+            yaxis2=dict(title="自己資本比率(%)", overlaying="y", side="right", range=[0, 100]),
+            barmode="group"
+        )
         st.plotly_chart(fig1, use_container_width=True, key="main_fig1")
         st.plotly_chart(fig2, use_container_width=True, key="main_fig2")
-        # 通期グラフも同じカラムに
+        # 通期グラフも同じカラムに（四半期スライダーのフィルターを適用しない）
         if 'fig3' in locals() and 'fig4' in locals() and fy_options:
             st.markdown("## 通期グラフ")
-            st.plotly_chart(fig3, use_container_width=True, key="main_fig3")
-            st.plotly_chart(fig4, use_container_width=True, key="main_fig4")
+            # 通期グラフはdf_fyの全データを表示
+            if not df_fy.empty:
+                fig3 = go.Figure()
+                fig3.add_trace(go.Bar(x=df_fy["PeriodLabel"], y=df_fy["NetSales"], name="売上高（100万円）", marker_color="royalblue"))
+                fig3.add_trace(go.Bar(x=df_fy["PeriodLabel"], y=df_fy["OperatingProfit"], name="営業利益（100万円）", marker_color="orange"))
+                fig3.add_trace(go.Scatter(x=df_fy["PeriodLabel"], y=df_fy["営業利益率"], name="営業利益率(%)", yaxis="y2", mode="lines+markers", marker_color="green"))
+                fig3.update_layout(
+                    title="売上高・営業利益・営業利益率の推移（通期）",
+                    xaxis_title="通期(FY)",
+                    yaxis=dict(title="金額（100万円）"),
+                    yaxis2=dict(title="営業利益率(%)", overlaying="y", side="right", range=[0, 100]),
+                    barmode="group"
+                )
+                fig4 = go.Figure()
+                fig4.add_trace(go.Bar(x=df_fy["PeriodLabel"], y=df_fy["TotalAssets"], name="総資産（100万円）", marker_color="royalblue"))
+                fig4.add_trace(go.Bar(x=df_fy["PeriodLabel"], y=df_fy["Equity"], name="純資産（100万円）", marker_color="orange"))
+                fig4.add_trace(go.Scatter(x=df_fy["PeriodLabel"], y=df_fy["自己資本比率"], name="自己資本比率(%)", yaxis="y2", mode="lines+markers", marker_color="green"))
+                fig4.update_layout(
+                    title="総資産・純資産・自己資本比率の推移（通期）",
+                    xaxis_title="通期(FY)",
+                    yaxis=dict(title="金額（100万円）"),
+                    yaxis2=dict(title="自己資本比率(%)", overlaying="y", side="right", range=[0, 100]),
+                    barmode="group"
+                )
+                st.plotly_chart(fig3, use_container_width=True, key="main_fig3")
+                st.plotly_chart(fig4, use_container_width=True, key="main_fig4")
+        # ChatGPTインサイトもdf_q_filteredのみで生成
     with col2:
         st.markdown("## ChatGPTインサイト")
         if st.button("ChatGPTでインサイトを生成", key="insight_btn"):
             company_name_disp = company_name if 'company_name' in locals() else ""
-            if len(df_q) > 0:
-                period_min = df_q["PeriodLabel"].iloc[0]
-                period_max = df_q["PeriodLabel"].iloc[-1]
+            if len(df_q_filtered) > 0:
+                period_min = df_q_filtered["PeriodLabel"].iloc[0]
+                period_max = df_q_filtered["PeriodLabel"].iloc[-1]
                 accounting_period = f"{period_min}～{period_max}"
             else:
                 accounting_period = ""
@@ -346,7 +403,7 @@ if 'fig1' in locals() and 'fig2' in locals():
                 "営業利益率",
                 "自己資本比率"
             ]
-            gpt_df = df_q[gpt_cols].tail(10)
+            gpt_df = df_q_filtered[gpt_cols].tail(10)
             fact_text = gpt_df.tail(4).to_markdown(index=False)
             raw_data_text = gpt_df.to_markdown(index=False)
             user_prompt = (
@@ -374,7 +431,6 @@ if 'fig1' in locals() and 'fig2' in locals():
                 )
                 insight = response.choices[0].message.content
                 st.session_state["insight"] = insight
-        # ボタン押下後もインサイトを表示
         if "insight" in st.session_state:
             st.markdown("### 💡 ChatGPTによるインサイト")
             st.code(st.session_state["insight"], language="json") 
