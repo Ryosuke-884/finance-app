@@ -11,23 +11,32 @@ import openai
 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 
-# REFRESH_TOKENからIDトークンを自動取得
-REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
-def get_id_token(refresh_token):
-    url = "https://api.jquants.com/v1/token/auth_refresh"
-    headers = {"Content-Type": "application/json"}
-    data = {"refreshToken": refresh_token}
-    res = requests.post(url, json=data, headers=headers)
-    if res.status_code == 200:
-        return res.json().get("idToken")
-    else:
-        st.error(f"IDトークン取得失敗: {res.status_code} {res.text}")
-        return None
+MAILADDRESS = os.getenv("JQUANTS_ID") or os.getenv("QUANTS_ID")
+PASSWORD = os.getenv("JQUANTS_PASSWORD") or os.getenv("PASSWORD")
 
-if REFRESH_TOKEN:
-    ID_TOKEN = get_id_token(REFRESH_TOKEN)
-else:
-    ID_TOKEN = os.getenv("JQUANTS_ID_TOKEN")
+def get_id_token(mailaddress, password):
+    # 1. refreshToken取得
+    auth_url = "https://api.jquants.com/v1/token/auth_user"
+    auth_payload = {
+        "mailaddress": mailaddress,
+        "password": password
+    }
+    auth_res = requests.post(auth_url, json=auth_payload)
+    auth_data = auth_res.json()
+    refresh_token = auth_data.get("refreshToken")
+    if not refresh_token:
+        st.error(f"refreshTokenの取得に失敗しました: {auth_data}")
+        return None
+    # 2. idToken取得
+    refresh_url = f"https://api.jquants.com/v1/token/auth_refresh?refreshtoken={refresh_token}"
+    refresh_res = requests.post(refresh_url)
+    refresh_data = refresh_res.json()
+    id_token = refresh_data.get("idToken")
+    if not id_token:
+        st.error(f"idTokenの取得に失敗しました: {refresh_data}")
+    return id_token
+
+ID_TOKEN = get_id_token(MAILADDRESS, PASSWORD)
 
 GPT_TOKEN = os.getenv("GPT_TOKEN")
 client = openai.OpenAI(api_key=GPT_TOKEN)

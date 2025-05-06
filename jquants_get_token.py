@@ -1,19 +1,13 @@
-import streamlit as st
 import os
 import requests
 from dotenv import load_dotenv
 
-# .envから環境変数を読み込む（ローカル用）
+# .envから環境変数を読み込む
 load_dotenv()
 
-def get_secret(key):
-    # Streamlitのsecretsがあれば優先、なければ環境変数
-    return st.secrets[key] if key in st.secrets else os.getenv(key)
+MAILADDRESS = os.getenv("JQUANTS_ID") or os.getenv("QUANTS_ID")
+PASSWORD = os.getenv("JQUANTS_PASSWORD") or os.getenv("PASSWORD")
 
-MAILADDRESS = get_secret("JQUANTS_ID")
-PASSWORD = get_secret("JQUANTS_PASSWORD")
-
-# デバッグ用print
 print("MAILADDRESS:", MAILADDRESS)
 print("PASSWORD:", PASSWORD)
 
@@ -25,7 +19,7 @@ auth_payload = {
 }
 auth_res = requests.post(auth_url, json=auth_payload)
 auth_data = auth_res.json()
-print("auth_data:", auth_data)  # デバッグ用print
+print("auth_data:", auth_data)
 refresh_token = auth_data.get("refreshToken")
 
 if not refresh_token:
@@ -38,7 +32,7 @@ print("refreshToken:", refresh_token)
 refresh_url = f"https://api.jquants.com/v1/token/auth_refresh?refreshtoken={refresh_token}"
 refresh_res = requests.post(refresh_url)
 refresh_data = refresh_res.json()
-print("refresh_data:", refresh_data)  # デバッグ用print
+print("refresh_data:", refresh_data)
 id_token = refresh_data.get("idToken")
 
 if not id_token:
