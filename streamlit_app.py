@@ -329,8 +329,8 @@ if 'fig1' in locals() and 'fig2' in locals():
             st.plotly_chart(fig4, use_container_width=True, key="main_fig4")
     with col2:
         st.markdown("## ChatGPTインサイト")
-        if st.button("ChatGPTでインサイトを生成"):
-            company_name = company_name if 'company_name' in locals() else ""
+        if st.button("ChatGPTでインサイトを生成", key="insight_btn"):
+            company_name_disp = company_name if 'company_name' in locals() else ""
             if len(df_q) > 0:
                 period_min = df_q["PeriodLabel"].iloc[0]
                 period_max = df_q["PeriodLabel"].iloc[-1]
@@ -353,7 +353,7 @@ if 'fig1' in locals() and 'fig2' in locals():
                 "# 命令文\n"
                 "あなたは証券アナリストです。決算書の内容を読み、業績サマリ、売上高・営業利益・自己資本比率の推移、なぜこのような実績になったのかという推測をするインサイトと質問を投げかけてください。推移やサマリについては実際の実績データを用いて具体的に記述してください。（例：2024/3Qの売上高は100億円でしたが2024/4Qは120億円と1.2倍に成長）質問は会社の経営者の視点でなぜどのようなことを実施したと思われるのか、または実施していくべきかを考えさせるような質問にしてください\n"
                 "# 入力文\n"
-                f"企業名：{company_name}\n"
+                f"企業名：{company_name_disp}\n"
                 f"会計期間：{accounting_period}\n"
                 f"四半期データ：\n{fact_text}\n"
                 f"元データ：\n{raw_data_text}\n"
@@ -373,5 +373,8 @@ if 'fig1' in locals() and 'fig2' in locals():
                     temperature=0.5,
                 )
                 insight = response.choices[0].message.content
+                st.session_state["insight"] = insight
+        # ボタン押下後もインサイトを表示
+        if "insight" in st.session_state:
             st.markdown("### 💡 ChatGPTによるインサイト")
-            st.code(insight, language="json") 
+            st.code(st.session_state["insight"], language="json") 
