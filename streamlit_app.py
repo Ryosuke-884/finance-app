@@ -14,8 +14,8 @@ load_dotenv(dotenv_path)
 MAILADDRESS = os.getenv("JQUANTS_ID") or os.getenv("QUANTS_ID")
 PASSWORD = os.getenv("JQUANTS_PASSWORD") or os.getenv("PASSWORD")
 
+@st.cache_data(show_spinner=False)
 def get_id_token(mailaddress, password):
-    # 1. refreshToken取得
     auth_url = "https://api.jquants.com/v1/token/auth_user"
     auth_payload = {
         "mailaddress": mailaddress,
@@ -27,7 +27,6 @@ def get_id_token(mailaddress, password):
     if not refresh_token:
         st.error(f"refreshTokenの取得に失敗しました: {auth_data}")
         return None
-    # 2. idToken取得
     refresh_url = f"https://api.jquants.com/v1/token/auth_refresh?refreshtoken={refresh_token}"
     refresh_res = requests.post(refresh_url)
     refresh_data = refresh_res.json()
@@ -36,7 +35,17 @@ def get_id_token(mailaddress, password):
         st.error(f"idTokenの取得に失敗しました: {refresh_data}")
     return id_token
 
+@st.cache_data(show_spinner=False)
+def get_company_list(id_token):
+    url = "https://api.jquants.com/v1/listed/info"
+    headers = {"Authorization": f"Bearer {id_token}"}
+    res = requests.get(url, headers=headers)
+    if res.status_code == 200:
+        return pd.DataFrame(res.json().get("info", []))
+    return pd.DataFrame([])
+
 ID_TOKEN = get_id_token(MAILADDRESS, PASSWORD)
+company_df = get_company_list(ID_TOKEN)
 
 GPT_TOKEN = os.getenv("GPT_TOKEN")
 client = openai.OpenAI(api_key=GPT_TOKEN)
@@ -57,18 +66,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-# 上場企業リスト取得
-@st.cache_data(show_spinner=False)
-def get_company_list(id_token):
-    url = "https://api.jquants.com/v1/listed/info"
-    headers = {"Authorization": f"Bearer {id_token}"}
-    res = requests.get(url, headers=headers)
-    if res.status_code == 200:
-        return pd.DataFrame(res.json().get("info", []))
-    return pd.DataFrame([])
-
-company_df = get_company_list(ID_TOKEN)
 
 # 検索UIを1つに統一し、会社名または証券コードどちらでも検索できるように
 def code_to_str4(code):
