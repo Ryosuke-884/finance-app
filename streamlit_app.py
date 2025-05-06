@@ -307,7 +307,7 @@ if 'df_price' in locals() and not df_price.empty:
 if 'fig1' in locals() and 'fig2' in locals():
     col1, col2 = st.columns([2, 1])
     with col1:
-        st.markdown("## 四半期グラフ")
+        st.markdown("## 四半期")
         # 四半期表示期間スライサー（データが存在する範囲のみ選択肢にする）
         valid_periods = df_q.dropna(subset=["NetSales_single"])["PeriodLabel"].tolist()
         if valid_periods:
@@ -356,7 +356,7 @@ if 'fig1' in locals() and 'fig2' in locals():
         st.plotly_chart(fig2, use_container_width=True, key="main_fig2")
         # 通期グラフも同じカラムに（四半期スライダーのフィルターを適用しない）
         if 'fig3' in locals() and 'fig4' in locals() and fy_options:
-            st.markdown("## 通期グラフ")
+            st.markdown("## 通期")
             # 通期グラフはdf_fyの全データを表示
             if not df_fy.empty:
                 fig3 = go.Figure()
